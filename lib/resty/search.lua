@@ -6,6 +6,7 @@ local max = math.max
 local log = math.log
 local unpack = unpack
 local gsub = ngx.re.gsub
+local null = ngx.null
 local rrandom = require "resty.random"
 local rstring = require "resty.string"
 
@@ -46,6 +47,7 @@ local function split(self, delimiter, limit)
     return result, n
 end
 
+-- TODO add stop word for common thing like name bin binti
 -- stop words pulled from the below url
 -- http://www.textfixer.com/resources/common-english-words.txt
 local WORDS = [['a,able,about,across,after,all,almost,also,am,among,an,and,any,
@@ -104,7 +106,7 @@ local function get_index_scores(content)
     local counts = {}
     for i=1,wordcount do
         local w = words[i]
-        counts[w] = (counts[w] or 0.0) + 1.0  
+        counts[w] = (counts[w] or 0.0) + 1.0
         if counts[w] then
             keys[j] = w
             j = j + 1
@@ -121,7 +123,13 @@ local function get_index_scores(content)
     return keys, ncount, tf
 end
 
+local function empty(v)
+    return v == null or v == '' or v == ' '
+end
+
 function _M.add_indexed_item(self, id, content)
+    if empty(content) then return 0 end
+
     local r = self.redis
     local keys, n, tf = get_index_scores(content)
     r:init_pipeline(n+1)
@@ -135,6 +143,8 @@ function _M.add_indexed_item(self, id, content)
 end
 
 function _M.remove_indexed_item(self, id, content)
+    if empty(content) then return 0 end
+
     local r = self.redis
     local keys, n, tf = get_index_scores(content)
     r:init_pipeline(n+1)
@@ -181,7 +191,7 @@ function _M.query(self, q, offset, count)
 
     --  And generate the weight dictionary for passing to zunionstore.
     local j = 0
-    local weights = new_tab((nsize * 2) + 1, 0) 
+    local weights = new_tab((nsize * 2) + 1, 0)
     weights[nsize + 1] = "WEIGHTS"
     for i=1,n do
         local size = sizes[i]
