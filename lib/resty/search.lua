@@ -124,7 +124,7 @@ local function get_index_scores(content)
 end
 
 local function empty(v)
-    return v == null or v == '' or v == ' '
+    return not v or v == null or v == '' or v == ' '
 end
 
 function _M.add_indexed_item(self, id, content)
